@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <script src='https://api.mapbox.com/mapbox-gl-js/v2.0.1/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v2.0.1/mapbox-gl.css' rel='stylesheet' />
+    
+    <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-directions/v4.1.0/mapbox-gl-directions.js"></script>
+    <link rel="stylesheet"
+        href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-directions/v4.1.0/mapbox-gl-directions.css"
+        type="text/css" />
+        <script
+        src="https://code.jquery.com/jquery-3.5.1.min.js"
+        integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0="
+        crossorigin="anonymous"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@2.8.0"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+        }
+        html {
+            overflow: hidden;
+        }
+        #title {
+            padding: 14px;
+            text-align: center;
+            background-color: rgb(2, 2, 42);
+            color: white;
+            font-size: 32px;
+            font-family: sans-serif;
+        }
+        #chartLatitud {
+            width: 720px !important;
+            height: auto !important;
+            background-color: #3bb2d0eb;
+            margin: 20px auto;
+            position: fixed;
+            z-index: 9999;
+            bottom: 0;
+            right: 10px;
+        }
+        .directions-control.directions-control-instructions {
+            display: none;
+        }
+        /*loading style*/
+                .modal {
+            display:    none;
+            position:   fixed;
+            z-index:    10000;
+            top:        0;
+            left:       0;
+            height:     100%;
+            width:      100%;
+            background: rgba( 255, 255, 255, .8 ) 
+                        url('./Dual Ring-1s-92px.gif') 
+                        50% 50% 
+                        no-repeat;
+        }
+
+        /* When the body has the loading class, we turn
+        the scrollbar off with overflow:hidden */
+        body.loading .modal {
+            overflow: hidden;   
+        }
+
+        /* Anytime the body has the loading class, our
+        modal element will be visible */
+        body.loading .modal {
+            display: block;
+        }
+    </style>
+    <title>Document</title>
+</head>
+<body>
+    <div id="title">
+        Map trajet et latitude
+    </div>
+    <div id='map' style='width: 100%; height: 100vh;'></div>
+    
+    <div id="chartLatitud"></div>
+    <div class="modal"><!-- Place at bottom of page --></div>
+    <script>
+        $body = $("body");
+
+        $(document).on({
+            ajaxStart: function() { $body.addClass("loading");    },
+            ajaxStop: function() { $body.removeClass("loading"); }    
+        });
+        mapboxgl.accessToken = 'pk.eyJ1IjoiemFvdWNoIiwiYSI6ImNrajhkdGFwNTFuZWoyd252dzdhOGpwMjIifQ.eH3zm8ylhSS5d933zJ751Q';
+            var map = new mapboxgl.Map({
+                container: 'map',
+                style: 'mapbox://styles/mapbox/streets-v11', // stylesheet location
+                center: [-74.5, 40], // starting position [lng, lat]
+                zoom: 9 // starting zoom
+            });
+            // Add zoom and rotation controls to the map.
+        map.addControl(new mapboxgl.NavigationControl());
+        map.addControl(
+            new MapboxDirections({
+                accessToken: mapboxgl.accessToken
+            }),
+            'top-left'
+        );
+        
+
+        $('#mapbox-directions-origin-input input').attr('placeholder', 'Choisissez un point de départ ou cliquez sur la carte');
+        $('#mapbox-directions-destination-input input').attr('placeholder', 'Choisissez une destination');
+
+        $('label[for="mapbox-directions-profile-driving-traffic"]').html('Transport');
+        $('label[for="mapbox-directions-profile-driving"]').html('Véhicule');
+        $('label[for="mapbox-directions-profile-cycling"]').html('Vélo');
+        $('label[for="mapbox-directions-profile-walking"]').html('A pied');
+        $('label[for="mapbox-directions-profile-driving-traffic"]').append('<img src="https://www.flaticon.com/svg/vstatic/svg/1034/1034795.svg?token=exp=1610634750~hmac=8f69d21f2bc5e66c80b704219f551df6" style="'+
+    'width: 35px;'+'">');
+    $('label[for="mapbox-directions-profile-driving"]').append('<img src="https://www.flaticon.com/svg/vstatic/svg/1085/1085926.svg?token=exp=1610635106~hmac=6e5bc894802c4fb17d6456178d7dd8b7" style="'+
+    'width: 40px;'+'">');
+    $('label[for="mapbox-directions-profile-cycling"]').append('<img src="https://www.flaticon.com/svg/vstatic/svg/3380/3380977.svg?token=exp=1610635278~hmac=6c1f5ba96b77948d752e17db96f648f0" style="'+
+    'width: 40px;'+'">');
+    $('label[for="mapbox-directions-profile-walking"]').append('<img src="https://www.flaticon.com/svg/vstatic/svg/599/599350.svg?token=exp=1610635348~hmac=06f751be3add2dcf9a195779e5380737" style="'+
+    'width: 35px;'+'">');
+        const cordsDebut = {lng: "", lat: ""};
+        const cordsFin = {lng: "", lat: ""};
+        first = true;
+        let cordsDebutText = "";
+        let cordsFinText = "";
+        let typeTranspport = "driving-traffic";//driving, walking, and cycling
+        let points = [];
+        let distance = 0;
+            $('#mapbox-directions-profile-driving-traffic').on('click', function () {
+                typeTranspport = "driving-traffic";
+                GetLat();
+            });
+            $('#mapbox-directions-profile-driving').on('click', function () {
+                typeTranspport = "driving";
+                GetLat();
+            });
+            $('#mapbox-directions-profile-cycling').on('click', function () {
+                typeTranspport = "cycling";
+                GetLat();
+            });
+            $('#mapbox-directions-profile-walking').on('click', function () {
+                typeTranspport = "walking";
+                GetLat();
+            });
+        function GetLat() {
+            if((cordsFin["lng"] != '' && cordsFin["lat"] != '') && 
+                (cordsDebut["lng"] != '' && cordsDebut["lat"] != '') ) {
+                    $.ajax({
+                        url: 'https://api.mapbox.com/directions/v5/mapbox/'+typeTranspport+'/' + cordsDebut["lng"]+','+ cordsDebut["lat"] +
+                        ';'+ cordsFin["lng"] + ','+ cordsFin["lat"],
+                        type: 'GET',
+                        data: {geometries:  "geojson", steps: true, access_token: mapboxgl.accessToken},
+                        success: function (response) {
+                            let x = [];
+                            let y = [];
+                            let c = 0;
+                            let i = 0;
+                            let distanceGlobale =  Math.ceil(response.routes[0].distance);
+                            response.routes[0].geometry.coordinates.forEach((coordinate) => {
+                                    x[i] = c;
+                                    y[i] = coordinate[1];
+                                    c += Math.ceil(response.routes[0].distance/response.routes[0].geometry.coordinates.length)
+                                    i++;
+                            });
+                            if(x[1] >= 200){
+                                for(k = 1; k < i; k++){
+                                    x[k] = (x[k]/1000).toFixed(1) + ' km';
+                                }
+                            } else {
+                                for(k = 1; k < i; k++){
+                                    x[k] = Math.ceil(x[k]) + ' m';
+                                }
+                            }
+
+                            chartElement = '<canvas id="LatitudeChart"><canvas>';
+                            $('#chartLatitud').html('');
+                            $('#chartLatitud').append(chartElement);
+                            var ctx = document.getElementById('LatitudeChart').getContext('2d');
+                            var chart = new Chart(ctx, {
+                                // The type of chart we want to create
+                                type: 'line',
+                                // The data for our dataset
+                                data: {
+                                    labels: x,
+                                    datasets: [{
+                                        backgroundColor: 'rgb(2, 2, 42)',
+                                        borderColor: 'rgb(2, 2, 42)',
+                                        data: y
+                                    }]
+                                },
+                                // Configuration options go here
+                                options: {
+				                    responsive: true,
+                                    title: {
+                                        display: true,
+                                        text: 'Latitude du trajet'
+                                    },
+                                    tooltips: {
+                                        mode: 'index',
+                                        intersect: false,
+                                    },
+                                    hover: {
+                                        mode: 'nearest',
+                                        intersect: true
+                                    },
+                                    scales: {
+                                        xAxes: [{
+                                            display: true,
+                                            scaleLabel: {
+                                                display: true,
+                                                labelString: 'Distqnce'
+                                            }
+                                        }],
+                                        yAxes: [{
+                                            display: true,
+                                            scaleLabel: {
+                                                display: true,
+                                                labelString: 'Latitude'
+                                            }
+                                        }]
+                                    }
+                                }
+                            });
+                            
+                            console.log(distanceGlobale,x, y, response);
+                        },
+                        error: function (response) {
+                            console.log('[probleme] query directions');
+                        }
+                    });
+                }
+        }
+
+        map.on('click', function(e) {
+            if(first){
+                cordsDebut["lng"] = e.lngLat.lng;
+                cordsDebut["lat"] = e.lngLat.lat;
+                first = false;
+                console.log('A: ' + cordsDebut["lat"]);
+                GetLat();
+            } else {
+                cordsFin["lng"] = e.lngLat.lng;
+                cordsFin["lat"] = e.lngLat.lat;
+                console.log('B: ' + cordsFin["lat"]);
+
+            }
+        });
+        $('#mapbox-directions-origin-input button').on('click', function(){
+            first = true;
+        });
+
+        $('#mapbox-directions-origin-input input').on('change', function () {
+            cordsDebutText = $('#mapbox-directions-origin-input input').val();
+            $.ajax({
+                url:'https://api.mapbox.com/geocoding/v5/mapbox.places/'+cordsDebutText+'.json',
+                data: {access_token: mapboxgl.accessToken},
+                type: 'GET',
+                success : function(response) {
+                    cordsDebut["lng"] = response.features[0].geometry.coordinates[0];
+                    cordsDebut["lat"] = response.features[0].geometry.coordinates[1];
+                },
+                error: function(response) {
+                    console.log('[probleme] query mapbox.places ');
+                }
+            });
+            GetLat();
+        });
+        $('#mapbox-directions-destination-input input').on('change', function () {
+            cordsFinText = $('#mapbox-directions-destination-input input').val();
+            $.ajax({
+                url:'https://api.mapbox.com/geocoding/v5/mapbox.places/'+cordsFinText+'.json',
+                data: {access_token: mapboxgl.accessToken},
+                type: 'GET',
+                success : function(response) {
+                    cordsFin["lng"] = response.features[0].geometry.coordinates[0];
+                    cordsFin["lat"] = response.features[0].geometry.coordinates[1];
+                },
+                error: function(response) {
+                    console.log('[probleme] query mapbox.places ');
+                }
+            });
+            GetLat();
+        });
+        /*function chart(x,y) {
+
+                //Chart line
+        var ctx = document.getElementById('myChart').getContext('2d');
+        var chart = new Chart(ctx, {
+            // The type of chart we want to create
+            type: 'line',
+
+            // The data for our dataset
+            data: {
+                labels: x,
+                datasets: [{
+
+                    backgroundColor: 'rgb(255, 99, 132)',
+                    borderColor: 'rgb(255, 99, 132)',
+                    data: y
+                }]
+            },
+            // Configuration options go here
+            options: {}
+        });
+    }*/
+    /*var ctx = document.getElementById('myChart').getContext('2d');
+        var chart = new Chart(ctx, {
+            // The type of chart we want to create
+            type: 'line',
+
+            // The data for our dataset
+            data: {
+                labels: [distance],
+                datasets: [{
+                    borderColor: 'rgb(255, 99, 132)',
+                    data: ['latitude']
+                }]
+            },
+            // Configuration options go here
+            options: {}
+        });*/
+    </script>
+</body>
+</html>
